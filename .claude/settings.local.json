@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:research.google)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:abehrouz.github.io)",
+      "WebFetch(domain:openreview.net)",
+      "WebFetch(domain:itcanthink.substack.com)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:arxiviq.substack.com)",
+      "WebFetch(domain:github.com)",
+      "Bash(gh api:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/__init__.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/optimizers/__init__.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/optimizers/deep_momentum.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/optimizers/delta_rule.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/optimizers/preconditioned.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/optimizers/nested_dmgd.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/memory/__init__.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/memory/associative.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/memory/continuum.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/models/__init__.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/models/hope.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/models/titans.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/training/__init__.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/training/nested_trainer.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/training/continuum_trainer.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/utils/__init__.py)",
+      "Bash(curl -sL https://raw.githubusercontent.com/erikl2/nested-learning/main/src/nested_learning/meta/__init__.py)",
+      "Bash(pip install:*)",
+      "Bash(python -c \"import jax; import flax; import optax; print\\(''JAX:'', jax.__version__\\); print\\(''Flax:'', flax.__version__\\); print\\(''Optax:'', optax.__version__\\)\")",
+      "Bash(python examples/demo.py)",
+      "Bash(python examples/scaling_exploration.py)",
+      "Bash(python examples/deeper_questions.py)"
+    ]
+  }
+}

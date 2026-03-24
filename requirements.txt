@@ -1,0 +1,15 @@
+# Core dependencies
+jax>=0.4.20
+jaxlib>=0.4.20
+flax>=0.8.0
+optax>=0.1.7
+chex>=0.1.87
+numpy>=1.24.0
+
+# For plotting (scaling exploration experiments)
+matplotlib>=3.7.0
+
+# Note for Windows users: flax has an optional dependency on uvloop
+# which doesn't support Windows. Install flax with:
+#   pip install flax --no-deps
+#   pip install msgpack rich pyyaml treescope
