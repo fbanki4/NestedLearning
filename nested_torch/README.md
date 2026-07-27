@@ -161,8 +161,17 @@ policy just collapses to `uniform`). Only the policy's
 log-probs carry gradient — the memory writes stay non-differentiable (delta rule)
 — so this is genuine RL *on top of* a frozen foundation model. The demo trains
 the policy, then prints the per-block update profile it discovered and compares
-its forgetting to the fixed schedules. (Numbers vary run-to-run; treat as a
-mechanism demo.)
+its forgetting to the fixed schedules.
+
+**Observed** (short CPU run; numbers vary): the reward improves as the policy
+trains, and the learned policy reaches the **best retention of the old task**
+(lowest error-on-A-after-B) while still learning the new task well — a good
+stability/plasticity balance. But it converges to updating blocks *broadly*
+rather than discovering a "fast middle", consistent with the CL result that the
+middle isn't special on this synthetic setup. Getting RL to *discover* selective,
+workspace-like allocations likely needs a regime where blocks genuinely interfere
+(real pretrained weights + real BCI tasks). The loop, reward, and grad flow all
+work — it's the substrate that's too easy, not the method.
 
 ## Roadmap
 
