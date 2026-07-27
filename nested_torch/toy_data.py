@@ -38,3 +38,28 @@ def sample_task(basis: torch.Tensor, batch: int, seq: int, noise: float = 0.05,
     if device is not None:
         x = x.to(device)
     return x
+
+
+def make_eeg_batch(batch: int, n_channels: int, n_times: int, freqs, fs: float = 128.0,
+                   noise: float = 0.1, seed: int | None = None, device=None) -> torch.Tensor:
+    """Synthetic EEG-like batch: ``(batch, n_channels, n_times)``.
+
+    Each channel is a sum of oscillations at the given ``freqs`` (Hz) with random
+    per-sample, per-channel amplitude and phase — a crude but EEG-plausible signal
+    (EEG is dominated by band-limited rhythms). Two 'tasks' with disjoint ``freqs``
+    (e.g. alpha vs beta bands) are genuinely different distributions, which is what
+    lets us pretrain on a rich band and then measure forgetting across bands.
+    """
+    g = torch.Generator().manual_seed(seed) if seed is not None else None
+    f = torch.as_tensor(list(freqs), dtype=torch.float32)          # (F,)
+    t = torch.arange(n_times, dtype=torch.float32) / fs            # (T,)
+    amps = 0.5 + torch.rand(batch, n_channels, len(f), generator=g)   # (B,C,F)
+    phases = 2 * torch.pi * torch.rand(batch, n_channels, len(f), generator=g)
+    angles = (2 * torch.pi * f[None, None, :, None] * t[None, None, None, :]
+              + phases[..., None])                                  # (B,C,F,T)
+    sig = (amps[..., None] * torch.sin(angles)).sum(dim=2)          # (B,C,T)
+    if noise > 0:
+        sig = sig + noise * torch.randn(batch, n_channels, n_times, generator=g)
+    if device is not None:
+        sig = sig.to(device)
+    return sig

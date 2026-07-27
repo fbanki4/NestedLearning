@@ -79,14 +79,20 @@ logits = eeg_model.head(h)            # backbone's own read-out
 | `fast_weights.py` | `BlockMemory` — surprise-gated delta-rule associative memory, persistent state in buffers. |
 | `frozen_retrofit.py` | `FrozenRetrofit` — freezes the backbone, attaches a memory per block, runs multi-frequency + surprise-triggered updates, logs per-block adaptation. |
 | `reference_transformer.py` | Tiny stand-in transformer + `RetrofitModel` wrapper (frozen embed/read-out + retrofit). |
-| `toy_data.py` | Synthetic subspace tasks for CPU validation. |
+| `eeg_backbone.py` | `EEGTransformer` — CBraMod/LaBraM-shaped patch-embed → blocks → recon head; `load_pretrained` documents the real-weights path. |
+| `pretrain.py` | Masked-patch self-supervised pretraining (+ checkpoint save/load) so the backbone has real structure to test J-space on. |
+| `rl_controller.py` | `PolicyController` + `ReinforceTrainer` — an RL policy that *learns* which blocks to make plastic, with a reward that punishes forgetting. |
+| `toy_data.py` | Synthetic subspace tasks + oscillatory EEG-like batches for CPU validation. |
 
 ## Demos
 
 ```bash
-python examples_pytorch/demo_multifrequency.py   # the update-frequency profile
-python examples_pytorch/cl_forgetting.py          # a 2-task forgetting experiment
-python tests_pytorch/test_nested_torch.py         # 8 tests, no pytest needed
+python examples_pytorch/demo_multifrequency.py     # the update-frequency profile
+python examples_pytorch/cl_forgetting.py            # 2-task forgetting (random backbone)
+python examples_pytorch/cl_forgetting_pretrained.py # 2-task forgetting (PRETRAINED EEG backbone)
+python examples_pytorch/rl_controller.py            # RL learns the plasticity allocation
+python tests_pytorch/test_nested_torch.py           # core tests
+python tests_pytorch/test_rl_and_eeg.py             # EEG + RL tests
 ```
 
 **`demo_multifrequency.py`** — with `workspace`, update counts peak in the middle
@@ -116,21 +122,64 @@ catastrophically forgets (+0.43); restricting *where* plasticity lives —
 transfer). This reproduces the repo's JAX "Q3" result that multi-frequency
 updates protect old knowledge. It does **not** yet confirm the J-space-specific
 claim that the *middle* is special: on a **randomly-initialized** backbone the
-middle is not a semantic workspace, so `workspace` ≈ `edge_fast`. Testing the
-middle-beats-ends hypothesis requires a **pretrained** model (CBraMod/LaBraM) —
-see roadmap.
+middle is not a semantic workspace, so `workspace` ≈ `edge_fast`.
+
+**`cl_forgetting_pretrained.py`** — same test on a **pretrained** EEG backbone
+(masked-reconstruction SSL, then frozen), two tasks = two EEG frequency bands
+(theta/alpha vs beta/gamma):
+
+```
+schedule    errA|afterA errA|afterB  forgetting errB|afterB
+frozen          10.9299     10.9299      0.0000      9.8317
+workspace        6.2331      6.4940      0.2609      6.4824
+uniform          1.1728      8.7563      7.5835      1.0934   <- catastrophic forgetting
+edge_fast        7.3444      6.0499     -1.2945      6.9941
+```
+
+**Honest reading.** The robust effect is stronger here: `uniform` forgets
+catastrophically (**+7.58**) while `workspace` (+0.26) and `edge_fast` (−1.29)
+barely forget — confirming that concentrating plasticity protects old tasks. But
+the **J-space-specific bet is still not supported**: `edge_fast` forgets *less*
+than `workspace`, i.e. the middle is not clearly the best place. Two honest
+reasons: (a) our small synthetic SSL pretraining only weakly reduces the recon
+loss, so the backbone likely hasn't grown a real mid-network "workspace"; (b) a
+genuine J-space is an emergent property of *large* models on *rich* data. The
+verdict line in the demo prints this automatically. Confirming or refuting the
+bet properly needs **real** CBraMod/LaBraM weights — which the sandbox can't
+download (HuggingFace is network-blocked), but `load_pretrained` documents the
+one-machine path.
+
+### RL controller — learn the allocation instead of guessing
+
+`rl_controller.py` replaces the hand-designed schedule with a policy trained by
+**REINFORCE**. Each step, for each block, a small net sees `[depth, token
+surprise, concept surprise, memory fullness]` and outputs P(write now). Decisions
+are sampled; the episode is scored by a reward that **punishes forgetting**
+(`-(errA_afterA + errB_afterB) - forget_penalty·max(0, forgetting) - cost·update_fraction`;
+the forgetting penalty is essential — without it "update everything" wins and the
+policy just collapses to `uniform`). Only the policy's
+log-probs carry gradient — the memory writes stay non-differentiable (delta rule)
+— so this is genuine RL *on top of* a frozen foundation model. The demo trains
+the policy, then prints the per-block update profile it discovered and compares
+its forgetting to the fixed schedules. (Numbers vary run-to-run; treat as a
+mechanism demo.)
 
 ## Roadmap
 
-1. **Real backbone.** Drop CBraMod/LaBraM blocks into `FrozenRetrofit`; re-run
-   `cl_forgetting.py` on an EvoBrain-style stream of real BCI tasks. Only here
-   can `workspace` vs `edge_fast` actually test the J-space hypothesis.
-2. **RL layer.** The `scheduled` / `do_update` / gate decisions are exactly what
-   a policy can control. Cast per-block adaptation as an RL policy whose reward
-   penalizes forgetting (retained-task accuracy), turning surprise-gating into a
-   *learned* continual-learning controller.
-3. **Benchmark.** Report Average Accuracy + Backward Transfer vs LwF/EWC/replay
-   and EvoBrain on the EEG-FM downstream suite.
+- [x] **Multi-frequency retrofit** of a frozen transformer with the J-space
+  U-shaped schedule + token/concept-perplexity gating.
+- [x] **EEG-shaped backbone + SSL pretraining**, so the J-space bet is testable
+  (`cl_forgetting_pretrained.py`). Result so far: concentrating plasticity beats
+  `uniform` decisively; middle-vs-ends is inconclusive on synthetic data.
+- [x] **RL layer** (`rl_controller.py`): a REINFORCE policy that learns the
+  plasticity allocation with a forgetting-penalizing reward — RL on top of a
+  frozen foundation model.
+- [ ] **Real weights.** Load CBraMod/LaBraM via `load_pretrained` on a networked
+  GPU box and re-run both experiments — the only clean test of "middle beats
+  ends", since a real J-space is an emergent property of large pretrained models.
+- [ ] **Real benchmark.** Swap synthetic tasks for an EvoBrain-style stream of
+  real BCI datasets; report Average Accuracy + Backward Transfer vs LwF/EWC/
+  replay and EvoBrain.
 
 ## References
 

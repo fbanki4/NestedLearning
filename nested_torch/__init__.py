@@ -29,6 +29,9 @@ from .surprise import RunningStandardizer, ConceptCodebook, token_surprise, comb
 from .fast_weights import BlockMemory
 from .frozen_retrofit import FrozenRetrofit
 from .reference_transformer import TransformerBlock, ReferenceTransformer, RetrofitModel
+from .eeg_backbone import EEGTransformer, EEGPatchEmbed, load_pretrained
+from .pretrain import pretrain_masked, save_backbone, load_backbone
+from .rl_controller import PolicyController, ReinforceTrainer
 
 __all__ = [
     "FrequencySchedule", "build_schedule", "SCHEDULES",
@@ -36,4 +39,7 @@ __all__ = [
     "BlockMemory",
     "FrozenRetrofit",
     "TransformerBlock", "ReferenceTransformer", "RetrofitModel",
+    "EEGTransformer", "EEGPatchEmbed", "load_pretrained",
+    "pretrain_masked", "save_backbone", "load_backbone",
+    "PolicyController", "ReinforceTrainer",
 ]

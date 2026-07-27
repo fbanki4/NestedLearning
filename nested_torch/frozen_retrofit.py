@@ -95,6 +95,23 @@ class FrozenRetrofit(nn.Module):
         self._update_counts = [0 for _ in range(n)]
         self._forward_calls = 0
         self._gate_sums = [0.0 for _ in range(n)]
+        self._policy_logps: List[torch.Tensor] = []
+
+    def start_episode(self) -> None:
+        """Clear collected policy log-probs (call at the start of an RL episode)."""
+        self._policy_logps = []
+
+    def episode_logps(self) -> List[torch.Tensor]:
+        """Log-probs of the controller's update decisions since ``start_episode``."""
+        return self._policy_logps
+
+    def _block_features(self, i: int, n: int, tok: torch.Tensor,
+                        concept: torch.Tensor) -> torch.Tensor:
+        """Detached per-block feature vector the RL controller decides from."""
+        depth = i / (n - 1) if n > 1 else 0.5
+        mnorm = float(self.memories[i].W.norm()) / (self.memories[i].W.numel() ** 0.5)
+        vals = [depth, float(tok.mean()), float(concept.mean()), mnorm]
+        return torch.tensor(vals, dtype=torch.float32, device=self.memories[i].W.device)
 
     def adaptation_report(self) -> Dict[str, object]:
         """Per-block summary: how often each block actually updated, etc."""
@@ -119,33 +136,51 @@ class FrozenRetrofit(nn.Module):
         }
 
     # -- forward ---------------------------------------------------------
-    @torch.no_grad()
-    def forward(self, x: torch.Tensor, adapt: bool = True) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, adapt: bool = True, controller=None) -> torch.Tensor:
         """Run the frozen blocks with additive memory corrections.
 
         Parameters
         ----------
-        x     : (B, S, dim) embedded input (run the backbone's embedding first).
-        adapt : if True, memories may read *and* write. If False (eval), memories
-                still contribute their learned corrections but do not change.
+        x          : (B, S, dim) embedded input (run the backbone's embedding first).
+        adapt      : if True, memories may read *and* write. If False (eval),
+                     memories still contribute learned corrections but do not change.
+        controller : optional RL policy. When given (and ``adapt``), the policy
+                     decides *per block* whether to write this step, and its
+                     log-probs are collected via ``episode_logps`` so an outer
+                     REINFORCE loop can train it. The frozen blocks and the delta-
+                     rule writes stay under ``no_grad``; only the controller's own
+                     forward builds a gradient graph. With no controller this is
+                     the plain schedule + surprise-trigger path.
         """
-        # One concept query per sample = the pooled input representation.
-        z = x.mean(dim=1)                                   # (B, dim)
-        concept = self.concepts(z, update=adapt)["novelty"]  # (B,)
+        with torch.no_grad():
+            z = x.mean(dim=1)                                    # (B, dim)
+            concept = self.concepts(z, update=adapt)["novelty"]  # (B,)
 
         step = int(self.step_count)
+        n = len(self.blocks)
         for i, block in enumerate(self.blocks):
-            h = block(x)                                    # frozen block
-            scheduled = adapt and (step % self.schedule.periods[i] == 0)
-            correction, stats = self.memories[i].step(
-                h, concept, scheduled,
-                surprise_trigger=self.surprise_trigger and adapt,
-                trigger_threshold=self.trigger_threshold,
-                w_token=self.w_token, w_concept=self.w_concept,
-            )
+            with torch.no_grad():
+                h = block(x)                                     # frozen block
+                correction, key, error, tok, gate = self.memories[i].read_and_assess(
+                    h, concept, self.w_token, self.w_concept)
+                gate_mean = float(gate.mean())
+
+            if adapt and controller is not None:
+                feats = self._block_features(i, n, tok, concept)
+                do_update, logp = controller.act(feats)          # logp keeps grad
+                self._policy_logps.append(logp)
+            else:
+                do_update = adapt and (step % self.schedule.periods[i] == 0)
+                if (not do_update and adapt and self.surprise_trigger
+                        and gate_mean > self.trigger_threshold):
+                    do_update = True
+
+            if do_update:
+                self.memories[i].write(key, error, gate)         # no_grad inside
+
             x = h + correction
-            self._update_counts[i] += int(stats["updated"])
-            self._gate_sums[i] += stats["gate_mean"]
+            self._update_counts[i] += int(bool(do_update))
+            self._gate_sums[i] += gate_mean
 
         self._forward_calls += 1
         if adapt:

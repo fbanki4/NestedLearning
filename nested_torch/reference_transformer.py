@@ -107,11 +107,13 @@ class RetrofitModel(nn.Module):
         retrofit = FrozenRetrofit(backbone.blocks, dim=backbone.dim, **retrofit_cfg)
         return cls(backbone, retrofit)
 
-    @torch.no_grad()
-    def forward(self, x: torch.Tensor, adapt: bool = True) -> torch.Tensor:
-        h = self.backbone.embed(x)
-        h = self.retrofit(h, adapt=adapt)
-        return self.backbone.readout(h)
+    def forward(self, x: torch.Tensor, adapt: bool = True, controller=None) -> torch.Tensor:
+        with torch.no_grad():
+            h = self.backbone.embed(x)
+        h = self.retrofit(h, adapt=adapt, controller=controller)  # controller may build grad
+        with torch.no_grad():
+            out = self.backbone.readout(h)
+        return out
 
     @torch.no_grad()
     def predictive_error(self, x: torch.Tensor) -> float:

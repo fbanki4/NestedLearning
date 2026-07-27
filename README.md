@@ -325,16 +325,21 @@ applies Nested Learning to a **frozen** transformer for continual learning:
   J-lens* finding that a transformer's global workspace lives in its middle
   layers. The aim is to concentrate plasticity in the workspace while frozen
   weights and slow end-blocks resist catastrophic forgetting.
-- This is the adaptation layer for the larger goal of continual/RL learning on
-  an open **EEG foundation model** (CBraMod/LaBraM). See
-  [`nested_torch/README.md`](nested_torch/README.md) for design, demos, measured
-  results, and the roadmap (real backbone → RL controller → CL benchmark).
+- It also ships an **EEG-shaped backbone** with self-supervised pretraining (so
+  the J-space bet is testable) and an **RL controller** (REINFORCE) that *learns*
+  which blocks to make plastic, with a reward that punishes forgetting — genuine
+  RL on top of a frozen foundation model. See
+  [`nested_torch/README.md`](nested_torch/README.md) for design, demos, and the
+  measured (honestly reported) results.
 
 ```bash
 pip install -r requirements-torch.txt
-python examples_pytorch/demo_multifrequency.py   # update-frequency profile
-python examples_pytorch/cl_forgetting.py          # 2-task forgetting experiment
-python tests_pytorch/test_nested_torch.py         # 8 tests (no pytest needed)
+python examples_pytorch/demo_multifrequency.py      # update-frequency profile
+python examples_pytorch/cl_forgetting.py            # 2-task forgetting (random backbone)
+python examples_pytorch/cl_forgetting_pretrained.py # 2-task forgetting (pretrained EEG backbone)
+python examples_pytorch/rl_controller.py            # RL learns the plasticity allocation
+python tests_pytorch/test_nested_torch.py           # core tests
+python tests_pytorch/test_rl_and_eeg.py             # EEG + RL tests
 ```
 
 ## References

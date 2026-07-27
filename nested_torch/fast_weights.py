@@ -109,11 +109,34 @@ class BlockMemory(nn.Module):
         self.S.mul_(self.momentum).add_(grad, alpha=-self.lr)
         self.W.mul_(1.0 - self.forget).add_(self.S)
 
-    # -- the one call the retrofit uses ---------------------------------
+    # -- reusable pieces (used by the default path AND the RL controller) --
+    @torch.no_grad()
+    def read_and_assess(self, x: torch.Tensor, concept_surprise: torch.Tensor,
+                        w_token: float = 0.5, w_concept: float = 0.5):
+        """Compute everything needed to decide/perform an update, WITHOUT writing.
+
+        Returns ``(correction, key, error, tok, gate)`` where ``correction`` is
+        added to the frozen output, ``tok`` (B,S) is token perplexity, and
+        ``gate`` (B,S) is the surprise-blended write weight. Nothing is mutated
+        except the token-surprise running stats.
+        """
+        correction = self.read(x)                            # uses current memory
+        error, key = self._error_and_key(x)
+        tok = token_surprise(error, key, self.tok_standardizer,
+                             normalize=self.normalize_surprise, update=True)  # (B,S)
+        gate = combine_surprise(tok, concept_surprise, w_token, w_concept)    # (B,S)
+        return correction, key, error, tok, gate
+
+    @torch.no_grad()
+    def write(self, key: torch.Tensor, error: torch.Tensor, gate: torch.Tensor) -> None:
+        """Apply a gated delta-rule write (public wrapper around the update)."""
+        self._apply_write(key, error, gate)
+
+    # -- the default (non-RL) path the retrofit uses --------------------
     def step(self, x: torch.Tensor, concept_surprise: torch.Tensor, scheduled: bool,
              surprise_trigger: bool = True, trigger_threshold: float = 0.7,
              w_token: float = 0.5, w_concept: float = 0.5):
-        """Read a correction and (maybe) write to memory.
+        """Read a correction and (maybe) write, using the schedule + surprise trigger.
 
         Parameters
         ----------
@@ -130,16 +153,13 @@ class BlockMemory(nn.Module):
         correction : (B, S, dim) to add to the frozen output.
         stats      : dict of scalars for logging.
         """
-        correction = self.read(x)                            # uses current memory
-        error, key = self._error_and_key(x)
-        tok = token_surprise(error, key, self.tok_standardizer,
-                             normalize=self.normalize_surprise, update=True)  # (B,S)
-        gate = combine_surprise(tok, concept_surprise, w_token, w_concept)    # (B,S)
+        correction, key, error, tok, gate = self.read_and_assess(
+            x, concept_surprise, w_token, w_concept)
         gate_mean = float(gate.mean())
 
         do_update = scheduled or (surprise_trigger and gate_mean > trigger_threshold)
         if do_update:
-            self._apply_write(key, error, gate)
+            self.write(key, error, gate)
 
         stats = {
             "updated": 1.0 if do_update else 0.0,
