@@ -312,6 +312,31 @@ These are **tiny models** (7K-117K parameters) on **synthetic data** (500 tokens
 
 ---
 
+## PyTorch / GPU extension: `nested_torch/`
+
+Alongside this CPU/JAX teaching implementation, the repo now ships a
+**PyTorch, GPU-ready** module, [`nested_torch/`](nested_torch/README.md), that
+applies Nested Learning to a **frozen** transformer for continual learning:
+
+- It retrofits an already-trained transformer so each block's attached memory
+  updates at its own **frequency**, gated by **token and concept perplexity**.
+- Its default `"workspace"` schedule makes the **middle** blocks fastest and the
+  ends slow — a U-shaped frequency profile aligned with Anthropic's *J-space /
+  J-lens* finding that a transformer's global workspace lives in its middle
+  layers. The aim is to concentrate plasticity in the workspace while frozen
+  weights and slow end-blocks resist catastrophic forgetting.
+- This is the adaptation layer for the larger goal of continual/RL learning on
+  an open **EEG foundation model** (CBraMod/LaBraM). See
+  [`nested_torch/README.md`](nested_torch/README.md) for design, demos, measured
+  results, and the roadmap (real backbone → RL controller → CL benchmark).
+
+```bash
+pip install -r requirements-torch.txt
+python examples_pytorch/demo_multifrequency.py   # update-frequency profile
+python examples_pytorch/cl_forgetting.py          # 2-task forgetting experiment
+python tests_pytorch/test_nested_torch.py         # 8 tests (no pytest needed)
+```
+
 ## References
 
 - **Nested Learning paper:** Behrouz, Razaviyayn, Zhong, Mirrokni. *"Nested Learning: The Illusion of Deep Learning Architectures."* NeurIPS 2025. [arXiv:2512.24695](https://arxiv.org/abs/2512.24695)

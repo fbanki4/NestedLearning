@@ -1,0 +1,4 @@
+# Dependencies for the PyTorch, GPU-ready extension (nested_torch/).
+# The original JAX implementation (nested_learning/) uses requirements.txt.
+torch>=2.2
+numpy>=1.24
