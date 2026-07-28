@@ -1,5 +1,31 @@
 # Nested Learning — A Layman's Guide + JAX Implementation
 
+## 🔬 Featured build: `nested_torch/` — continual learning on a frozen model (PyTorch)
+
+A from-scratch, GPU-ready system that makes an **already-trained, frozen** transformer
+learn new tasks **without catastrophic forgetting**. It retrofits each transformer block
+with a Nested-Learning multi-timescale memory and concentrates plasticity in the model's
+*middle* — the sparse "global workspace" that Anthropic's **J-space / J-lens** work
+locates in mid-layers. A **reinforcement-learning controller** then *learns* which blocks
+to make plastic, with a reward that penalizes forgetting. **[Full write-up & design →](nested_torch/README.md)**
+
+![nested_torch proof-of-concept results](results/nested_torch_poc.png)
+
+*Left:* the `workspace` schedule concentrates memory updates in the middle blocks (the J-space bet).
+*Right:* on a pretrained EEG backbone, updating **everywhere** (`uniform`) forgets catastrophically, while concentrating plasticity does not.
+
+```bash
+pip install -e ".[viz]"
+python examples_pytorch/demo_multifrequency.py       # measured U-shaped update profile
+python examples_pytorch/cl_forgetting_pretrained.py  # catastrophic forgetting by schedule
+python examples_pytorch/rl_controller.py             # RL learns the plasticity allocation
+python tests_pytorch/test_nested_torch.py            # tests (also: test_rl_and_eeg.py)
+```
+
+*The remainder of this README is the original JAX teaching implementation the PoC builds on.*
+
+---
+
 A JAX implementation of **"Nested Learning: The Illusion of Deep Learning Architectures"** by Behrouz, Razaviyayn, Zhong, and Mirrokni (Google Research, NeurIPS 2025).
 
 This repo is designed for someone who isn't a machine learning researcher. Every module has plain-English docstrings explaining what's happening and why. The code runs on CPU with small models so you can experiment without a GPU.

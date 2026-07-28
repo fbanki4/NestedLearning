@@ -1,5 +1,9 @@
 # `nested_torch` — Frozen-Model Multi-Frequency Retrofit with a J-Space Workspace Schedule
 
+![Python](https://img.shields.io/badge/python-3.9%2B-blue)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.2%2B-ee4c2c)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 A **PyTorch, GPU-ready** implementation of the "ad hoc" idea sketched in the
 Nested Learning paper: take an **already-trained, frozen** transformer and
 retroactively give each of its blocks its own **update frequency**, driven by
@@ -10,6 +14,8 @@ retroactively give each of its blocks its own **update frequency**, driven by
 > the model's **global workspace** — the sparse, privileged mid-network subspace
 > that Anthropic's July-2026 *J-space / J-lens* interpretability work found lives
 > *only in the middle block* of a transformer.
+
+![nested_torch results: U-shaped update profile (left) and forgetting by schedule (right)](../results/nested_torch_poc.png)
 
 This is the opposite of the vanilla Continuum Memory System schedule
 ("early = fast, late = slow"). The bet: in a *pretrained* model, the middle is

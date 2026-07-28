@@ -35,19 +35,23 @@ EPISODES = int(os.environ.get("NL_RL_EPISODES", 60))
 PRETRAIN_STEPS = int(os.environ.get("NL_PRETRAIN_STEPS", 300))
 
 
-def eval_fixed(name: str, backbone, device, evA, evB) -> dict:
-    """Run the fixed-schedule (no policy) CL protocol for a baseline row."""
+def eval_fixed(name: str, backbone, device, evA, evB, steps: int) -> dict:
+    """Run the fixed-schedule (no policy) CL protocol for a baseline row.
+
+    Uses exactly ``steps`` adaptation steps per task — the SAME budget the RL
+    policy gets — so the RL row and the baseline rows are a fair comparison.
+    """
     model = RetrofitModel.build(backbone, schedule_name=("uniform" if name == "frozen" else name),
                                 min_period=1, max_period=64, num_heads=4, lr=0.15,
                                 momentum=0.9, forget=0.02, surprise_trigger=False).to(device)
     model.reset_memory(reset_concepts=True)
     adapt = name != "frozen"
     if adapt:
-        for t in range(60):
+        for t in range(steps):
             model(make_eeg_batch(16, C, T, BAND_A, seed=1000 + t, device=device), adapt=True)
     errA_afterA = model.predictive_error(evA)
     if adapt:
-        for t in range(60):
+        for t in range(steps):
             model(make_eeg_batch(16, C, T, BAND_B, seed=5000 + t, device=device), adapt=True)
     return {"schedule": name, "forgetting": model.predictive_error(evA) - errA_afterA,
             "errA_afterB": model.predictive_error(evA), "errB_afterB": model.predictive_error(evB)}
@@ -82,8 +86,8 @@ def main() -> None:
     ep = trainer.run_episode(model, taskA, taskB, evA, evB, steps=STEPS, deterministic=True)
     profile = [b["update_rate"] for b in model.adaptation_report()["per_block"]]
 
-    # --- compare against fixed schedules ---
-    rows = [eval_fixed(n, backbone, device, evA, evB)
+    # --- compare against fixed schedules (SAME step budget as the RL rollout) ---
+    rows = [eval_fixed(n, backbone, device, evA, evB, steps=STEPS)
             for n in ("frozen", "workspace", "uniform", "edge_fast")]
     rows.append({"schedule": "RL-policy", "forgetting": ep["forgetting"],
                  "errA_afterB": ep["errA_afterB"], "errB_afterB": ep["errB_afterB"]})
@@ -103,9 +107,9 @@ def main() -> None:
     ends = 0.5 * (profile[0] + profile[-1])
     print(f"\nmiddle rate={mid:.2f} vs mean-of-ends={ends:.2f} -> "
           f"{'policy concentrates plasticity in the MIDDLE (workspace-like)' if mid > ends else 'policy did NOT prefer the middle'}.")
-    print("Objective: lower 'forgetting' while keeping errB low. The RL row shows what a "
-          "learned\nplasticity allocation achieves vs the hand-designed schedules on the "
-          "same 2-task stream.")
+    print(f"Objective: lower 'forgetting' while keeping errB low. All rows use the same "
+          f"{STEPS}-step\nper-task budget, so the RL row is a fair comparison against the "
+          "hand-designed schedules.")
 
 
 if __name__ == "__main__":

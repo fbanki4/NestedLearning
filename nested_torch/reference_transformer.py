@@ -91,7 +91,7 @@ class RetrofitModel(nn.Module):
     attached per-block memories adapt (online, via the delta rule).
     """
 
-    def __init__(self, backbone: ReferenceTransformer, retrofit: FrozenRetrofit,
+    def __init__(self, backbone: nn.Module, retrofit: FrozenRetrofit,
                  freeze_backbone: bool = True):
         super().__init__()
         self.backbone = backbone
@@ -102,8 +102,14 @@ class RetrofitModel(nn.Module):
             self.backbone.eval()
 
     @classmethod
-    def build(cls, backbone: ReferenceTransformer, **retrofit_cfg) -> "RetrofitModel":
-        """Convenience: wrap ``backbone.blocks`` in a retrofit with the given config."""
+    def build(cls, backbone: nn.Module, **retrofit_cfg) -> "RetrofitModel":
+        """Convenience: wrap ``backbone.blocks`` in a retrofit with the given config.
+
+        Works with any backbone exposing ``.blocks`` (an ``nn.ModuleList`` of
+        ``block(x)->x``), ``.dim``, ``.embed`` and ``.readout`` — e.g. the toy
+        :class:`ReferenceTransformer`, :class:`~nested_torch.EEGTransformer`, or a
+        real EEG foundation model.
+        """
         retrofit = FrozenRetrofit(backbone.blocks, dim=backbone.dim, **retrofit_cfg)
         return cls(backbone, retrofit)
 
